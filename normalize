@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use XML::LibXML::Reader;
+use XML::LibXML::XPathContext;
+
+# Wiktionary contains many UTF-8 characters; output them correctly.
+binmode(STDOUT, ':utf8');
+
+# This will be used to find relevant components of <page> nodes.
+my $xpc = XML::LibXML::XPathContext->new;
+$xpc->registerNs('k', 'http://www.mediawiki.org/xml/export-0.10/');
+
+# Stream Wiktionary content rather than loading it all at once.
+my $reader = XML::LibXML::Reader->new(IO => *STDIN);
+while ($reader->nextElement('page')) {
+    my $pageNode = $reader->copyCurrentNode(1);
+
+    my $nsNode = $xpc->findnodes('k:ns', $pageNode)->shift;
+    my $titleNode = $xpc->findnodes('k:title', $pageNode)->shift;
+    my $redirectNode = $xpc->findnodes('k:redirect', $pageNode)->shift;
+    my $textNode = $xpc->findnodes('k:revision/k:text', $pageNode)->shift;
+
+    # Find valid definitions pages (ns 0) that aren't redirects.
+    if ($nsNode && $nsNode->textContent eq '0' &&
+        $titleNode && !$redirectNode && $textNode) {
+
+        # TODO: Parse for English word senses.
+        print $titleNode->textContent, "\n";
+    }
+}
