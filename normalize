@@ -15,6 +15,14 @@ sub element {
     return qr{<\s*$name$attribs(/\s*>|>.*?<\s*/\s*$name\s*>)}s;
 }
 
+my $contents = qr/([^{}]|\{(?!\{)|\}(?!\}))*/s;
+my $template = qr/\{\{$contents((?R)$contents)*\}\}/s;
+
+sub headword {
+    my $lang = shift;
+    return qr/\{\{($lang-|head\|$lang\|)(?<partOfSpeech>.*?)(\||\}\})/;
+}
+
 # This will be used to find relevant components of <page> nodes.
 my $xpc = XML::LibXML::XPathContext->new;
 $xpc->registerNs('k', 'http://www.mediawiki.org/xml/export-0.10/');
@@ -44,15 +52,15 @@ while ($reader->nextElement('page')) {
 
         # Skip lines until the next headword macro, which always
         # precedes an ordered list of definitions.
-        next if (shift(@lines) !~ /^\{\{(en-|head\|en\|)(.*?)(\||\}\})/);
-        my $partOfSpeech = $2;
+        next if (shift(@lines) !~ /^\s*($template\s*)*?${headword(en)}/);
+        my $partOfSpeech = $+{partOfSpeech};
 
         # The list ends at the beginning of the next section (/^=/).
         while (@lines && $lines[0] !~ /^=/) {
 
             # Ordered entries represent definitions; ignore others.
-            next if (shift(@lines) !~ /^#+(?![#*:])\s*(.*)/);
-            my $sense = $1;
+            next if (shift(@lines) !~ /^#+(?![#*:])\s*(?<sense>.*)/);
+            my $sense = $+{sense};
 
             print $titleNode->textContent, " : $partOfSpeech : $sense\n";
         }
