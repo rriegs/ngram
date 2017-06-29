@@ -20,11 +20,28 @@ while ($reader->nextElement('page')) {
     my $redirectNode = $xpc->findnodes('k:redirect', $pageNode)->shift;
     my $textNode = $xpc->findnodes('k:revision/k:text', $pageNode)->shift;
 
-    # Find valid definitions pages (ns 0) that aren't redirects.
-    if ($nsNode && $nsNode->textContent eq '0' &&
-        $titleNode && !$redirectNode && $textNode) {
+    # Ignore non-definitions (ns != 0), redirects, and invalid pages.
+    next if (!$nsNode || $nsNode->textContent ne '0' ||
+             $redirectNode || !$titleNode || !$textNode);
 
-        # TODO: Parse for English word senses.
-        print $titleNode->textContent, "\n";
+    # Wiktionary markup largely results in content items occuring on
+    # separate lines; accordingly, process pages line at a time.
+    my @lines = split(/\n/, $textNode->textContent);
+    while (@lines) {
+
+        # Skip lines until the next headword macro, which always
+        # precedes an ordered list of definitions.
+        next if (shift(@lines) !~ /^\{\{(en-|head\|en\|)(.*?)(\||\}\})/);
+        my $partOfSpeech = $2;
+
+        # The list ends at the beginning of the next section (/^=/).
+        while (@lines && $lines[0] !~ /^=/) {
+
+            # Ordered entries represent definitions; ignore others.
+            next if (shift(@lines) !~ /^#+(?![#*:])\s*(.*)/);
+            my $sense = $1;
+
+            print $titleNode->textContent, " : $partOfSpeech : $sense\n";
+        }
     }
 }
