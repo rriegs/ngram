@@ -6,6 +6,15 @@ use XML::LibXML::XPathContext;
 # Wiktionary contains many UTF-8 characters; output them correctly.
 binmode(STDOUT, ':utf8');
 
+my $comment = qr/<!--.*?-->/s;
+my $literal = qr/("[^"]*"|'[^']*')/s;
+my $attribs = qr{(\s[^</>"']*($literal[^</>"']*)*)?}s;
+
+sub element {
+    my $name = shift;
+    return qr{<\s*$name$attribs(/\s*>|>.*?<\s*/\s*$name\s*>)}s;
+}
+
 # This will be used to find relevant components of <page> nodes.
 my $xpc = XML::LibXML::XPathContext->new;
 $xpc->registerNs('k', 'http://www.mediawiki.org/xml/export-0.10/');
@@ -24,9 +33,9 @@ while ($reader->nextElement('page')) {
     next if (!$nsNode || $nsNode->textContent ne '0' ||
              $redirectNode || !$titleNode || !$textNode);
 
-    # Strip XML comments.
+    # Strip XML comments and ref elements.
     my $pageText = $textNode->textContent;
-    $pageText =~ s/<!--.*?-->//gs;
+    $pageText =~ s/$comment|${element('ref')}//gs;
 
     # Wiktionary markup largely results in content items occuring on
     # separate lines; accordingly, process pages line at a time.
