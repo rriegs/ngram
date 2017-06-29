@@ -24,9 +24,13 @@ while ($reader->nextElement('page')) {
     next if (!$nsNode || $nsNode->textContent ne '0' ||
              $redirectNode || !$titleNode || !$textNode);
 
+    # Strip XML comments.
+    my $pageText = $textNode->textContent;
+    $pageText =~ s/<!--.*?-->//gs;
+
     # Wiktionary markup largely results in content items occuring on
     # separate lines; accordingly, process pages line at a time.
-    my @lines = split(/\n/, $textNode->textContent);
+    my @lines = split(/\n/, $pageText);
     while (@lines) {
 
         # Skip lines until the next headword macro, which always
